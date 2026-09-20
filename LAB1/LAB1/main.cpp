@@ -1,32 +1,103 @@
 #include <iostream>
 #include <fstream>
 #include <map>
+#include <vector>
 #include <string>
-#include <algorithm>
 #include <cctype>
 
 using namespace std;
 
+string toLowerCase(string word)
+{
+	string result;
+
+	for (size_t i = 0; i < word.length();)
+	{
+		unsigned char first = word[i];
+
+		if ((first == 0xD0 || first == 0xD1) && i + 1 < word.length() )
+		{
+			unsigned char second = word[i + 1];
+
+			// Ð Ð½Ð° Ñ‘
+			if (first == 0xD0 && second == 0x81)
+			{
+				result += "\xD1\x91";
+				i += 2;
+			}
+			// Ð-ÐŸ Ð½Ð° Ð°-Ð¿
+			else if (first == 0xD0 && second >= 0x90 && second <= 0x9F)
+			{
+				result += static_cast<char>(first);
+				result += static_cast<char>(second + 0x20);
+				i += 2;
+			}
+			// Ð -Ð¯ Ð½Ð° Ñ€-ÑÑ
+			else if (first == 0xD0 && second >= 0xA0 && second <= 0xAF)
+			{
+				result += static_cast <char> (0xD1);
+				result += static_cast <char> (second - 0x20);
+				i += 2;
+			}
+			else
+			{
+				result += static_cast <char> (first);
+				result += static_cast <char> (second);
+				i += 2;
+			}
+		}
+		else
+		{
+			result = result + static_cast <char> (tolower(static_cast <unsigned char> (word[i]) ) );
+			i++;
+		}
+	}
+
+	return result;
+}
+
+
+
 string normalizeWord(string word)
 {
-	while (word.empty() == false && ispunct(static_cast<unsigned char> (word.front())))
+
+	while (word.empty() == false && ispunct(static_cast <unsigned char> (word.front() ) ) )
 	{
 		word.erase(word.begin() );
 	}
 
-	while (word.empty() == false && ispunct(static_cast<unsigned char> (word.back())))
+	while (word.empty() == false && ispunct(static_cast <unsigned char> (word.back() ) ) )
 	{
 		word.pop_back();
 	}
 
-	transform(word.begin(), word.end(), word.begin(),
-		[](unsigned char symbol)
-	{
-		return static_cast <char> (tolower(symbol) );
-	});
-
+	word = toLowerCase(word);
 	return word;
 }
+
+
+bool containsWordSymbol(const string& word)
+{
+	for (size_t i = 0; i < word.length(); i++)
+	{
+		unsigned char symbol = word[i];
+
+		if (isalnum(symbol) )
+		{
+			return true;
+		}
+
+		// Ñ€ÑƒÑÑÐºÐ°Ñ Ð±Ñ‹ÐºÐ²Ð° Ð½Ñ‡Ð°Ð¸Ð½ÐµÑ‚ÑÑ Ñ d0 Ð¸Ð»Ð¸ d1
+		if ((symbol == 0xD0 || symbol == 0xD1) &&
+			i + 1 < word.length() )
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
 
 int main()
 {
@@ -34,34 +105,50 @@ int main()
 
 	ifstream inputFile("input.txt");
 
-	if (inputFile.is_open() == false)
+	if (!inputFile.is_open())
 	{
-		cout << "Îøèáêà: íå óäàëîñü îòêðûòü ôàéë input.txt." << endl;
+		cerr << "ÐžÑˆÐ¸Ð±ÐºÐ°: Ð½Ðµ ÑƒÐ´Ð°Ð»Ð¾ÑÑŒ Ð¾Ñ‚ÐºÑ€Ñ‹Ñ‚ÑŒ Ñ„Ð°Ð¹Ð» input.txt." << endl;
+
 		cin.get();
 
 		return 1;
 	}
 
-	map<string, int> wordCounter;
+	map<string, vector<int>> wordPositions;
+
 	string word;
 
+	int position = 0;
 	while (inputFile >> word)
 	{
 		word = normalizeWord(word);
 
-		if (word.empty() == false)
+		if (containsWordSymbol(word) == false)
 		{
-			wordCounter[word]++;
+			continue;
 		}
+		wordPositions[word].push_back(position);
+
+		position++;
 	}
 
 	inputFile.close();
 
-	cout << "Ðåçóëüòàòû ïîäñ÷¸òà ñëîâ:" << endl;
-
-	for (const auto& key_value : wordCounter)
+	for (const auto& key_value : wordPositions)
 	{
-		cout << key_value.first << " - " << key_value.second << endl;
+		cout << key_value.first << " â€“ ";
+
+		for (size_t i = 0; i < key_value.second.size(); i++)
+		{
+			cout << key_value.second[i];
+
+			if (i + 1 < key_value.second.size())
+			{
+				cout << ", ";
+			}
+		}
+
+		cout << endl;
 	}
 
 	cin.ignore();
